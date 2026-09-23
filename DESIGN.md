@@ -123,45 +123,89 @@ The `shifts` table includes:
 * `starting_cash`: `NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (starting_cash >= 0)`, opening cash drawer float.
 * `ending_cash`: `NUMERIC(10, 2) CHECK (ending_cash >= 0)`, reconciled closing cash amount in the drawer.
 
-All columns, except in the `shifts` table are required, and hence should have the `NOT NULL` constraint applied. No other constraints are necessary.
+All columns, except `close_at` in the `shifts` table are required, and hence should have the `NOT NULL` constraint applied. No other constraints are necessary.
 
 #### Customers
 
-The `submissions` table includes:
+The `customers` table includes:
 
-* `id`, which specifies the unique ID for the submission as an `INTEGER`. This column thus has the `PRIMARY KEY` constraint applied.
-* `student_id`, which is the ID of the student who made the submission as an `INTEGER`. This column thus has the `FOREIGN KEY` constraint applied, referencing the `id` column in the `students` table to ensure data integrity.
-* `problem_id`, which is the ID of the problem which the submission solves as an `INTEGER`. This column thus has the `FOREIGN KEY` constraint applied, referencing the `id` column in the `problems` table to ensure data integrity.
-* `submission_path`, which is the path, relative to the database, at which the submission files are stored. It is assumed that all submissions are uploaded to the same server on which the database file is stored, and that submission files can be accessed by following the relative path from the database. Given that this attribute stores a filepath, not the submission files themselves, it is of type affinity `TEXT`.
-* `correctness`, which is the score, as a float from 0 to 1.0, the student received on the assignment. This column is represented with a `NUMERIC` type affinity, which can store either floats or integers.
-* `timestamp`, which is the timestamp at which the submission was made.
-
-All columns are required and hence have the `NOT NULL` constraint applied where a `PRIMARY KEY` or `FOREIGN KEY` constraint is not. The `correctness` column has an additional constraint to check if its value is greater than 0 and less than or equal 1, given that this is the valid range for a correctness score. Similar to the student's `started` attribute, the submission `timestamp` attribute defaults to the current timestamp when a new row is inserted.
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each loyalty customer.
+* `first_name`: `VARCHAR(30) NOT NULL`, customer's first name.
+* `last_name`: `VARCHAR(30) NOT NULL`, customer's last name.
+* `phone_number`: `VARCHAR(20) NOT NULL UNIQUE`, unique mobile number used for loyalty profile lookup.
+* `points_balance`: `NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (points_balance >= 0)`, accumulated reward points balance.
+* `registered_at`: `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`, date and time of customer enrollment.
 
 #### Categories
 
-The `comments` table includes:
+The `categories` table includes:
 
-* `id`, which specifies the unique ID for the submission as an `INTEGER`. This column thus has the `PRIMARY KEY` constraint applied.
-* `instructor_id`, which specifies the ID of the instructor who wrote the comment as an `INTEGER`. This column thus has the `FOREIGN KEY` constraint applied, referencing the `id` column in the `instructors` table, which ensures that each comment be referenced back to an instructor.
-* `submission_id`, which specifies the ID of the submission on which the comment was written as an `INTEGER`. This column thus has the `FOREIGN KEY` constraint applied, referencing the `id` column in the `submissions` table, which ensures each comment belongs to a particular submission.
-* `contents`, which contains the contents of the columns as `TEXT`, given that `TEXT` can still store long-form text.
-
-All columns are required and hence have the `NOT NULL` constraint applied where a `PRIMARY KEY` or `FOREIGN KEY` constraint is not.
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each category.
+* `name`: `VARCHAR(30) NOT NULL UNIQUE`, distinct category title (e.g., Coffee, Desserts).
 
 #### Ingradients
 
+The `ingradients` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each ingredient.
+* `name`: `VARCHAR(30) NOT NULL UNIQUE`, unique raw material title.
+* `unit`: `unit_type NOT NULL`, custom ENUM type indicating the unit of measurement (`'g'`, `'ml'`, `'pcs'`).
+* `cost_per_unit`: `NUMERIC(10, 2) NOT NULL`, purchasing cost per specified measurement unit.
+
 #### Items
+
+The `items` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each menu item.
+* `category_id`: `INT NOT NULL`, foreign key referencing `categories(id)` with `ON DELETE CASCADE`.
+* `name`: `VARCHAR(30) NOT NULL UNIQUE`, unique dish or beverage title.
+* `cost`: `NUMERIC(10, 2) NOT NULL`, retail selling price.
+* `is_active`: `BOOLEAN NOT NULL DEFAULT TRUE`, soft-deletion/visibility flag indicating whether the item is active on the menu.
 
 #### Tech_cards
 
+The `tech_cards` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each recipe ingredient entry.
+* `item_id`: `INT NOT NULL`, foreign key referencing `items(id)` with `ON DELETE CASCADE`.
+* `ingradient_id`: `INT NOT NULL`, foreign key referencing `ingradients(id)` with `ON DELETE CASCADE`.
+* `quantity`: `NUMERIC(5, 2) NOT NULL`, ingredient proportion needed to prepare one unit of the dish.
+* `UNIQUE (item_id, ingradient_id)`: guarantees each ingredient is specified only once per menu item.
+
 #### Inventory
+
+The `inventory` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each inventory record.
+* `store_id`: `INT NOT NULL`, foreign key referencing `stores(id)` with `ON DELETE CASCADE`.
+* `ingradient_id`: `INT NOT NULL`, foreign key referencing `ingradients(id)` with `ON DELETE CASCADE`.
+* `current_stock`: `NUMERIC(10, 2) NOT NULL`, the actual remaining physical balance in stock.
+* `UNIQUE (store_id, ingradient_id)`: prevents duplicate balance rows for the same ingredient at the same store branch.
 
 #### Orders
 
+The `orders` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each order.
+* `shift_id`: `INT`, foreign key referencing `shifts(id)` with `ON DELETE CASCADE`.
+* `customer_id`: `INT`, foreign key referencing `customers(id)` with `ON DELETE SET NULL`, preserving order history if a customer account is removed.
+* `created_at`: `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`, exact order placement time.
+* `status`: `order_status NOT NULL`, custom ENUM status (`'in_process'`, `'ready'`, `'cancel'`).
+* `payment_method`: `payment_type`, custom ENUM method (`'cash'`, `'card'`), nullable to support unpaid in-process orders.
+* `total_amount`: `NUMERIC(10, 2) NOT NULL`, total monetary amount of the order.
+
 #### Order_items
 
+The `order_items` table includes:
+
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each line item.
+* `order_id`: `INT`, foreign key referencing `orders(id)` with `ON DELETE CASCADE`.
+* `item_id`: `INT`, foreign key referencing `items(id)` with `ON DELETE CASCADE`.
+* `quantity`: `NUMERIC(5, 2) NOT NULL`, number of portions purchased.
+* `unit_price`: `NUMERIC(10, 2) NOT NULL`, selling price per unit at the time of purchase, preserving historical sales revenue against future item price updates.
+
 ### Relationships
+
 
 The below entity relationship diagram describes the relationships among the entities in the database.
 
@@ -169,10 +213,23 @@ The below entity relationship diagram describes the relationships among the enti
 
 As detailed by the diagram:
 
-* One student is capable of making 0 to many submissions. 0, if they have yet to submit any work, and many if they submit to more than one problem (or make more than one submission to any one problem). A submission is made by one and only one student. It is assumed that students will submit individual work (not group work).
-* A submission is associated with one and only one problem. At the same time, a problem can have 0 to many submissions: 0 if no students have yet submitted work to that problem, and many if more than one student has submitted work for that problem.
-* A comment is associated with one and only one submission, whereas a submission can have 0 to many comments: 0 if an instructor has yet to comment on the submission, and many if an instructor leaves more than one comment on a submission.
-* A comment is written by one and only one instructor. At the same time, an instructor can write 0 to many comments: 0 if they have yet to comment on any students' work, and many if they have written more than 1 comment.
+* Stores to Employees (1 to Many): Each store employs multiple staff members, but each employee belongs to exactly one branch (stores.id = employees.store_id).
+
+* Stores to Shifts (1 to Many): A store hosts multiple work shifts over time, but every shift belongs strictly to one store (stores.id = shifts.store_id).
+
+* Employees to Shifts (1 to Many): An employee can operate multiple shifts over time, while each shift is assigned to one responsible employee (employees.id = shifts.employee_id).
+
+* Shifts to Orders (1 to Many): A single shift contains multiple processed customer orders, but each order belongs to one shift (shifts.id = orders.shift_id).
+
+* Customers to Orders (1 to Many, Optional): A customer can make multiple purchases over time. An order can exist without an associated customer (customer_id IS NULL) for anonymous walk-in sales.
+
+* Orders to Order Items (1 to Many): Each order contains one or more line items (orders.id = order_items.order_id), and each line item belongs to one parent order.
+
+* Categories to Items (1 to Many): A category contains multiple menu items, but each item belongs to one category (categories.id = items.category_id).
+
+* Items to Ingredients (Many to Many): Resolved via the tech_cards junction table (tech_cards.item_id and tech_cards.ingradient_id). One item requires multiple raw ingredients, and one raw material is reused across multiple item recipes.
+
+* Stores to Ingredients (Many to Many): Resolved via the inventory junction table (inventory.store_id and inventory.ingradient_id), tracking localized ingredient balances for each individual store location.
 
 ## Optimizations
 
