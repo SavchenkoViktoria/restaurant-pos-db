@@ -93,29 +93,37 @@ The database includes the following entities:
 The `stores` table includes:
 
 * `id`: `SERIAL PRIMARY KEY`, uniquely identifies each store location using an auto-incrementing integer.
-* `name`: `VARCHAR(30) NOT NULL`, the name of the store location.
-* `address`: `VARCHAR(60) NOT NULL`, the physical address of the branch.
-* `phone_number`: `VARCHAR(20) NOT NULL UNIQUE`, contact telephone number of the branch, constrained to be unique.
+* `name`: `VARCHAR(30) NOT NULL`, the name of the store location, can`t be NULL, containts 30 symbols.
+* `address`: `VARCHAR(60) NOT NULL`, the physical address of the branch, can`t be NULL, containts 60 symbols.
+* `phone_number`: `VARCHAR(20) NOT NULL UNIQUE`, contact telephone number of the branch, constrained to be unique, can`t be NULL, containts 20 symbols.
 
 #### Employees
 
-The `instructors` table includes:
+The `employees` table includes:
 
-* `id`, which specifies the unique ID for the instructor as an `INTEGER`. This column thus has the `PRIMARY KEY` constraint applied.
-* `first_name`, which specifies the instructor's first name as `TEXT`.
-* `last_name`, which specifies the instructor's last name as `TEXT`.
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each employee.
+* `store_id`: `INT NOT NULL`, foreign key referencing `stores(id)` with `ON DELETE CASCADE`.
+* `first_name`: `VARCHAR(30) NOT NULL`, employee's first name, containts 30 symbols.
+* `last_name`: `VARCHAR(30) NOT NULL`, employee's last name, containts 30 symbols.
+* `role`: `employee_role NOT NULL`, custom ENUM type (`'cashier'`, `'waiter'`, `'cook'`, `'manager'`, `'admin'`).
+* `pincode`: `VARCHAR(4) NOT NULL`, short numeric code used by employees for POS terminal authorization, containts 4 symbols.
+* `UNIQUE (store_id, pincode)`: ensures PIN codes are unique within the same branch while allowing identical PINs across different branches.
 
-All columns in the `instructors` table are required and hence should have the `NOT NULL` constraint applied. No other constraints are necessary.
+All columns in the `employees` table are required and hence should have the `NOT NULL` constraint applied.
 
 #### Shifts
 
-The `problems` table includes:
+The `shifts` table includes:
 
-* `id`, which specifies the unique ID for the instructor as an `INTEGER`. This column thus has the `PRIMARY KEY` constraint applied.
-* `problem_set`, which is an `INTEGER` specifying the number of the problem set of which the problem is a part. Problem sets are *not* represented separately, given that each is only identified by a number.
-* `name`, which is the name of the problem set as `TEXT`.
+* `id`: `SERIAL PRIMARY KEY`, uniquely identifies each shift.
+* `store_id`: `INT NOT NULL`, foreign key referencing `stores(id)` with `ON DELETE CASCADE`.
+* `employee_id`: `INT NOT NULL`, foreign key referencing `employees(id)` with `ON DELETE CASCADE`.
+* `open_at`: `TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`, exact timestamp when the register was opened.
+* `close_at`: `TIMESTAMP`, timestamp when the shift concluded; remains `NULL` while the shift is open.
+* `starting_cash`: `NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (starting_cash >= 0)`, opening cash drawer float.
+* `ending_cash`: `NUMERIC(10, 2) CHECK (ending_cash >= 0)`, reconciled closing cash amount in the drawer.
 
-All columns in the `problems` table are required, and hence should have the `NOT NULL` constraint applied. No other constraints are necessary.
+All columns, except in the `shifts` table are required, and hence should have the `NOT NULL` constraint applied. No other constraints are necessary.
 
 #### Customers
 
