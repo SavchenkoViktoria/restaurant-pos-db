@@ -2,9 +2,7 @@
 
 By Viktoriya Savchenko. GitHub SavchenkoViktoria
 
-Video overview:
-
-## Scope
+Video overview: https://youtu.be/O9vdL2m0O_w
 
 ## Scope
 
@@ -208,7 +206,7 @@ The `order_items` table includes:
 
 The below entity relationship diagram describes the relationships among the entities in the database.
 
-![ER Diagram](diagram.png)
+![ER Diagram](Bistro_Base_ER_diagram.png) by https://dbdiagram.io/
 
 As detailed by the diagram:
 
@@ -232,10 +230,45 @@ As detailed by the diagram:
 
 ## Optimizations
 
-Per the typical queries in `queries.sql`, it is common for users of the database to access all submissions submitted by any particular student. For that reason, indexes are created on the `first_name`, `last_name`, and `github_username` columns to speed the identification of students by those columns.
+To ensure fast response times on front-end POS terminals and optimize back-office reporting, several performance indexes and analytical views were implemented:
+Щоб забезпечити пришвидшення та спрощення роботи касира та людини, яка працює зі складськими запасами я створила декілька індексів та подання.
 
-Similarly, it is also common practice for a user of the database to concerned with viewing all students who submitted work to a particular problem. As such, an index is created on the `name` column in the `problems` table to speed the identification of problems by name.
+### Indexes
+* `index_customers_name` on `customers(last_name, first_name)`: Speeds up customer lookup by last name and first name at checkout counter terminals.
+Пришвидшує пошук клієнта по імені та прізвищу на терміналах кас.
+* `index_items_name` on `items(name)`: Accelerates menu item search queries in POS navigation and catalog management.
+Прискорює пошук товарів в касі та каталозі.
+* `index_active_items` on `items(id) WHERE is_active = TRUE`: A partial index that optimizes menu loading queries by indexing only active, sellable catalog positions, skipping deprecated records.
+Частковий індеск, який оптимізує перегляд меню лише доступних для продажу товарів, пропускаючи застарілі записи.
+* `index_orders_created` on `orders(created_at)`: Optimizes analytical time-series queries and daily/monthly revenue reporting.
+Оптимізує аналітичні запити до часових проміжків і щоденну/щомісячну звітність про доходи.
+* `index_orders_customer` and `index_orders_shifts` on `orders(customer_id)` and `orders(shift_id)`: Accelerate foreign-key join operations and filtering by specific cashier sessions or customer history.
+Прискорює операції з'єднання за зовнішніми ключами та фільтраціями за конкретною історією клієнта та зміною касира.
+* `index_orders_items` on `order_items(order_id)`: Dramatically reduces lookup overhead when aggregating line items for order totals.
+Значно зменшує навантаження при агрегуванні замовлених товарів для формування загальної суми.
+* `index_inventory_stock` on `inventory(store_id, current_stock) WHERE current_stock < 5`: A partial composite index designed specifically for the procurement monitoring dashboard to instantly flag low-stock ingredients without scanning the entire warehouse table.
+Частковий індекс для миттєвого пошуку дефіцитних інгредієнтів без сканування всього складу.
+
+### Views
+* `view_store_stock`: Simplifies multi-table join logic between stores, ingredients, and stock balances for direct inventory inspections.
+Спрощене багато-табличне подання для зв'язку між таблицями закладів, інградієнтів та залишків на складах для складського обліку.
+* `view_shift_summary`: Pre-aggregates total order counts, cash receipts, and average check sizes per cashier shift session.
+Агрегує загальну кількість замовлень, суми грошових надходжень і середній чек за зміну касира.
+* `view_item_costs`: Automates complex bill-of-materials computations to deliver live raw-material cost prices and gross margins per menu position.
+Автоматизує складні розрахунки, забезпечуючи отримання актуальних даних про собівартість сировини та маржу для кожної позиції меню.
+* `view_available_menu`: Uses cross-joins and `NOT EXISTS` subqueries to verify real-time ingredient availability across branches, preventing sales of out-of-stock items.
+Використовує перехресні з’єднання (cross-joins) та підзапити з оператором `NOT EXISTS` для перевірки наявності інгредієнтів у філіях у режимі реального часу, запобігаючи продажу товарів, яких немає в наявності.
 
 ## Limitations
 
-The current schema assumes individual submissions. Collaborative submissions would require a shift to a many-to-many relationship between students and submissions.
+Fixed Ingredient Unit Costs (No FIFO / Lot Tracking): Ingredient purchasing costs in ingradients.cost_per_unit represent static current values. The database does not track lot-based purchase batches (FIFO/LIFO accounting), meaning recipe food costs reflect current purchasing prices rather than historical batch-specific costs.
+Зміна собівартості інгредієнтів у часі: якщо ціна кавових зерен зросте, стара колонка cost_per_unit перезапишеться, тому база не підтримує партійний облік (FIFO/LIFO).
+
+Simplified Pricing and Promotions: Menu pricing is modeled statically via items.cost and fixed line prices. Dynamic pricing rules (such as happy hour discounts, promotional combo packages, or progressive discount tiers) are not supported at the schema level.
+Прості знижки замість динамічних акцій: немає складних промокодів, «щасливих годин» чи комбо-знижок.
+
+Floor and Table Management: The database models orders strictly as point-of-sale transactions tied to work shifts, without modeling physical dining hall layouts, table numbers, or guest seat assignments.
+Фізичні столики: замовлення не прив'язуються до номерів столиків або залів ресторану.
+
+Single Employee per Shift: Each cashier shift is linked to a single responsible employee, which does not accommodate shared multi-cashier drawer operations.
+Один касир на зміні: кожна касова зміна прив'язана до певного касира, що не дозволяє використовувати мультишерингову касу для декількох працівників.

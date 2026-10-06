@@ -215,6 +215,19 @@ LEFT JOIN orders ON shifts.id=orders.shift_id AND orders.status != 'cancel'
 GROUP BY shifts.id, stores.name, employees.first_name, employees.last_name, shifts.open_at, shifts.close_at
 ORDER BY stores.name ASC, shifts.id DESC;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 --створення подання собівартості товарів
 --create view for item costs
 CREATE VIEW view_item_costs AS
@@ -225,6 +238,27 @@ FROM items
 JOIN tech_cards ON items.id=tech_cards.item_id
 JOIN ingradients ON tech_cards.ingradient_id=ingradients.id
 GROUP BY items.id, items.name, items.cost;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 --створення подання з актуальними позиціями меню
 --create available menu view
@@ -243,6 +277,29 @@ AND NOT EXISTS(
     AND inv.store_id=s.id
     AND (inv.current_stock <=0 OR inv.current_stock < tc.quantity)
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -----------------------------------------------------------------------------------
 --ОПИС ТРИГЕРІВ
 --TRIGGERS DESCRIPTIONS
